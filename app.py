@@ -607,7 +607,7 @@ def infer_dr_cr_from_balance(txns: List[Txn], amount_tolerance: float = 0.50) ->
 # Excel writing
 # -----------------------------
 def txns_to_dataframe(txns: List[Txn]) -> pd.DataFrame:
-    cols = ["Date", "Narration", "Debit", "Credit", "Running Balance", "BalanceType", "InferredType", "Source", "RawAmounts", "RawText"]
+    cols = ["Date", "Narration", "Debit", "Credit", "Running Balance"]
     rows: List[Dict[str, Any]] = []
     for t in txns:
         rows.append(
@@ -617,11 +617,6 @@ def txns_to_dataframe(txns: List[Txn]) -> pd.DataFrame:
                 "Debit": t.withdrawal_dr,
                 "Credit": t.deposit_cr,
                 "Running Balance": t.balance,
-                "BalanceType": t.balance_type or "",
-                "InferredType": t.inferred_type or "",
-                "Source": t.source,
-                "RawAmounts": ", ".join(f"{x:.2f}" for x in t.raw_amounts) if t.raw_amounts else "",
-                "RawText": t.raw_text,
             }
         )
     # Ensure expected columns exist even when no rows are present to avoid KeyError later.
