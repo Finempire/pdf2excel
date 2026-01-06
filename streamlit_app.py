@@ -192,7 +192,7 @@ def render_preview_overlay(df: pd.DataFrame, diag: dict, rows: int) -> None:
         <div class="preview-top">
             <div>
                 <p class="preview-title">Conversion preview</p>
-                <p class="preview-sub">Showing up to 200 recent rows with diagnostics.</p>
+                <p class="preview-sub">Showing up to 200 recent rows with parsing details.</p>
             </div>
             <button class="preview-close" onclick="document.querySelector('.preview-panel').style.display='none';document.querySelector('.preview-scrim').style.display='none';">Close</button>
         </div>
@@ -309,8 +309,6 @@ def main() -> None:
         metric_col1.metric("Rows detected", rows)
         metric_col2.metric("Method used", diag.get("method", method))
         metric_col3.metric("Pages parsed", diag.get("pages", "n/a"))
-
-        st.write("Diagnostics", diag)
 
         if not df_txn.empty:
             st.dataframe(df_txn.head(25), use_container_width=True)
