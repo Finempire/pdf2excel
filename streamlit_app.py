@@ -3,6 +3,7 @@ import tempfile
 from typing import Optional, Tuple
 
 import streamlit as st
+import pandas as pd
 
 from app import (
     auto_parse,
@@ -19,7 +20,7 @@ def convert_pdf_to_excel(
     method: str,
     use_ocr: bool,
     include_raw: bool,
-) -> Tuple[bytes, dict, int]:
+) -> Tuple[bytes, dict, int, pd.DataFrame]:
     """
     Run the existing conversion pipeline against uploaded bytes and return Excel bytes.
     """
@@ -60,7 +61,7 @@ def convert_pdf_to_excel(
         with open(out_path, "rb") as f:
             excel_bytes = f.read()
 
-    return excel_bytes, diag, len(df_txn)
+    return excel_bytes, diag, len(df_txn), df_txn
 
 
 def main() -> None:
@@ -75,15 +76,26 @@ def main() -> None:
 
     if st.button("Convert") and uploaded is not None:
         with st.spinner("Processing..."):
-            excel_bytes, diag, rows = convert_pdf_to_excel(
-                uploaded.read(),
-                method=method,
-                use_ocr=use_ocr,
-                include_raw=include_raw,
-            )
+            try:
+                excel_bytes, diag, rows, df_txn = convert_pdf_to_excel(
+                    uploaded.read(),
+                    method=method,
+                    use_ocr=use_ocr,
+                    include_raw=include_raw,
+                )
+            except Exception as exc:  # pragma: no cover - interactive error path
+                st.error("Conversion failed. Please verify the PDF and method, then try again.")
+                st.exception(exc)
+                return
 
-        st.success(f"Done. Rows: {rows}. Method used: {diag.get('method')}")
+        st.success(f"Done. Rows: {rows}. Method used: {diag.get('method', method)}")
         st.write("Diagnostics:", diag)
+
+        if not df_txn.empty:
+            st.subheader("Preview")
+            st.dataframe(df_txn.head(50))
+        else:
+            st.warning("No transactions were detected in the uploaded PDF.")
 
         st.download_button(
             label="Download Excel",
