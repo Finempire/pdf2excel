@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "avid-circle-484606-b2",
+  "private_key_id": "676385e540e97b00806a61ed788b652ed13512c5",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC0jQLZp1fBF1bV\nwQakxml1Ro8sL+wpYNSNYzOIyOrWdyW2tv5lwHvwlpLplcz0eI9aJqV5x9C14Co+\nwcvZ9iwaHrJmvI3HsUnFXpuMzJHV3+I2VCYzUOukupLG6hp4LMQvLYwvAYA0ByFP\nrBWdciOu10QbfUZon5lTYDaCnAGJdQjRnkTVNZgnUlVxvzO6+7HdJUuaI+k4N7iA\n6ujqXc6tg0szxQyNpQkqn5G8Nflu/JbFeXB0CNBXQz3D5QhxnH801DA1yoN6Yv16\nNGEvn0elkCPZZbBb46NY8Z0ZMu6AKru6oRNF1oLuxJ0mFOoAfPKnlHEmA+ZL8iFj\n+YBAyUbRAgMBAAECggEAARiyIbxAbi3EGzw23B1QWqP5Dp2j44RxBgLKN1RxCKhk\nlD18QgXvOsDPV5fPTNTGmheN/bVW8SPRXdwzbrlt/yKclr8iZUoQVqCCdVJwuEnJ\nx+au7LTbGX8AkTCuxHgRIPA337k0nBxG+YLkBrbAvLkV8szJ9qyxc64r5pMn9zu6\nGTFXtQodmMMnKgEwczGlnUfewoAtAWMRmP1sOiabf5ImMYaSDhbjjIAgJuMNhwnW\n0SrQAD27db5zAHnrTMCZ+1I25AKdtJzbKSuYQ31PrDdnkmA3NHZYbwp15T2Acx7d\nHBKd+N4I56OJG578nvRhDXBDalU346NlIpv6AHGoIQKBgQDpmM3J+zmLLx4efrEl\n2/3ww84J9ETFGIGbBDo4aF+DYGRqMy9P6v85qZLLa5JZMU2OmlsiRZip8Rc69pKk\nWxh19oNIkFZaLJwnYUGgqo0xQVR5TS5rVl1d0O0tuGA6t6TI0yVN/T6KB19VjWYF\nCL00Fm++ycdSsWJ6du2hHWr8HQKBgQDF3dZVTJdMufkWC0UUDobh8xRV/gif5w+I\nOSOvfuI349wi0cgtarlW+OXDF0LggPxPj7LHtvi0PlnXwSbL22dDLsCwL2tW0zRU\nJpzs2PZTKF0/6kMd/hhZOPhBQlYeKCktelAAyoTShVfvYATuAq8EJs8+MqnHy+fr\nGqSQZTIvRQKBgG4aUdUEDsllugKRoJnBqV3UTMcwVUG5HU2dnnt75pkb0/iii4hV\nsVrSbJho6aAUtwOiCZaLyzs+ob5u/gttzIe9W3/WWH1ETY3aL361JLu0mUZbdKev\nG27ezQwhvWmvqYHm08yAsvuIIg1HCnEQ/20Prjf1D3gQl+Q1Ligkn4qZAoGASQxs\nK5OaK/5goi3I8+2lCFfYgyLFBluklVMbBJhgZefehpBSScoj4KMFGDBHRWD5RVo0\n05yOVuTKAGhTrWEzz068Xo8zHpvcrtCOkLZMwkidnJIc8z6yuIXayST3bCzBfwOv\n84rQ3HPUEhCt4TzmZi75xemoWpXB6j8s0A48J80CgYAI3opau7hqPyKFwkb8elYO\n2rvohP41rlQ4awzVw3jo++jkgABID8SHUt6PqWD6psBvuLkerTOZ+IDtLvHyKGKQ\n8G1U64j3ek4qdCZtl/eh3Tzugu3/TewWlnpvdtOhR9Z1LFJb+WMBvYJyhKPkziQq\ncmH18/aqNCrD9W6oEgF4mA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "ecommerce-gst-app@avid-circle-484606-b2.iam.gserviceaccount.com",
+  "client_id": "107403832179346347058",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ecommerce-gst-app%40avid-circle-484606-b2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
