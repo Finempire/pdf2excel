@@ -506,14 +506,51 @@ def parse_lines_method(pdf_path: str) -> Tuple[List[Txn], Dict[str, Any], List[s
 # -----------------------------
 # Method 4: OCR (optional)
 # -----------------------------
-def ocr_pdf_to_text_lines(pdf_path: str, dpi: int = 300) -> List[str]:
+def _render_pdf_with_pymupdf(pdf_path: str, dpi: int) -> List[Any]:
+    try:
+        import fitz  # type: ignore
+        from PIL import Image  # type: ignore
+    except Exception as e:
+        raise RuntimeError(
+            "PDF rendering requires poppler (pdf2image) or pymupdf + pillow."
+        ) from e
+
+    doc = fitz.open(pdf_path)
+    images: List[Any] = []
+    zoom = dpi / 72
+    matrix = fitz.Matrix(zoom, zoom)
+    for page in doc:
+        pix = page.get_pixmap(matrix=matrix)
+        mode = "RGBA" if pix.alpha else "RGB"
+        img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+        images.append(img)
+    return images
+
+
+def render_pdf_to_images(pdf_path: str, dpi: int = 300) -> List[Any]:
     try:
         from pdf2image import convert_from_path  # type: ignore
+        from pdf2image.exceptions import PDFInfoNotInstalledError  # type: ignore
+    except Exception:
+        return _render_pdf_with_pymupdf(pdf_path, dpi)
+
+    try:
+        return convert_from_path(pdf_path, dpi=dpi)
+    except PDFInfoNotInstalledError:
+        return _render_pdf_with_pymupdf(pdf_path, dpi)
+    except Exception as e:
+        if "poppler" in str(e).lower():
+            return _render_pdf_with_pymupdf(pdf_path, dpi)
+        raise
+
+
+def ocr_pdf_to_text_lines(pdf_path: str, dpi: int = 300) -> List[str]:
+    try:
         import pytesseract  # type: ignore
     except Exception as e:
-        raise RuntimeError("OCR requires pdf2image + pytesseract installed") from e
+        raise RuntimeError("OCR requires pytesseract installed") from e
 
-    pages = convert_from_path(pdf_path, dpi=dpi)
+    pages = render_pdf_to_images(pdf_path, dpi=dpi)
     lines: List[str] = []
     for img in pages:
         text = pytesseract.image_to_string(img)
@@ -558,8 +595,6 @@ def get_google_vision_credentials_path() -> Optional[str]:
 
 
 def ocr_pdf_to_text_lines_google_vision(pdf_path: str, dpi: int = 300) -> List[str]:
-    from pdf2image import convert_from_path  # type: ignore
-
     if importlib.util.find_spec("google.cloud.vision") is None:
         raise RuntimeError("Google Vision OCR requires google-cloud-vision installed.")
 
@@ -573,7 +608,7 @@ def ocr_pdf_to_text_lines_google_vision(pdf_path: str, dpi: int = 300) -> List[s
     credentials = service_account.Credentials.from_service_account_file(creds_path)
     client = vision.ImageAnnotatorClient(credentials=credentials)
 
-    pages = convert_from_path(pdf_path, dpi=dpi)
+    pages = render_pdf_to_images(pdf_path, dpi=dpi)
     lines: List[str] = []
     for img in pages:
         with tempfile.NamedTemporaryFile(suffix=".png") as tmp:

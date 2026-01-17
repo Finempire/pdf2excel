@@ -7,3 +7,4 @@ tabula-py
 pytesseract
 pdf2image
 google-cloud-vision
+pymupdf
