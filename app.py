@@ -41,10 +41,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import importlib.util
 import math
 import os
 import re
 import sys
+import tempfile
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -465,6 +467,7 @@ def parse_block_to_txn(block: Sequence[str], source: str = "lines") -> Optional[
         m_last = amt_matches[-1]
         narration = normalize_whitespace((rest_wo_bal[:m_last.start()] + " " + rest_wo_bal[m_last.end():]).strip())
 
+    joined = normalize_whitespace(" ".join(block))
     return Txn(
         date=d,
         narration=narration,
@@ -535,6 +538,74 @@ def parse_ocr_method(pdf_path: str) -> Tuple[List[Txn], Dict[str, Any], List[str
 
     diag = {
         "method": "ocr",
+        "lines_extracted": len(lines),
+        "date_blocks": len(blocks),
+        "txns_parsed": len(txns),
+    }
+    return txns, diag, lines
+
+
+def get_google_vision_credentials_path() -> Optional[str]:
+    env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_path and os.path.exists(env_path):
+        return env_path
+
+    local_path = os.path.join(os.path.dirname(__file__), "avid-circle-484606-b2-676385e540e9.json")
+    if os.path.exists(local_path):
+        return local_path
+
+    return None
+
+
+def ocr_pdf_to_text_lines_google_vision(pdf_path: str, dpi: int = 300) -> List[str]:
+    from pdf2image import convert_from_path  # type: ignore
+
+    if importlib.util.find_spec("google.cloud.vision") is None:
+        raise RuntimeError("Google Vision OCR requires google-cloud-vision installed.")
+
+    from google.cloud import vision  # type: ignore
+    from google.oauth2 import service_account  # type: ignore
+
+    creds_path = get_google_vision_credentials_path()
+    if creds_path is None:
+        raise RuntimeError("Google Vision credentials not found. Set GOOGLE_APPLICATION_CREDENTIALS or add the JSON file.")
+
+    credentials = service_account.Credentials.from_service_account_file(creds_path)
+    client = vision.ImageAnnotatorClient(credentials=credentials)
+
+    pages = convert_from_path(pdf_path, dpi=dpi)
+    lines: List[str] = []
+    for img in pages:
+        with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+            img.save(tmp.name, format="PNG")
+            with open(tmp.name, "rb") as f:
+                content = f.read()
+        image = vision.Image(content=content)
+        response = client.document_text_detection(image=image)
+        if response.error.message:
+            raise RuntimeError(f"Google Vision API error: {response.error.message}")
+        text = response.full_text_annotation.text or ""
+        for ln in text.splitlines():
+            ln = ln.strip()
+            if ln:
+                lines.append(ln)
+    return lines
+
+
+def parse_vision_method(pdf_path: str) -> Tuple[List[Txn], Dict[str, Any], List[str]]:
+    lines = ocr_pdf_to_text_lines_google_vision(pdf_path)
+    blocks = build_date_blocks(lines)
+
+    txns: List[Txn] = []
+    for b in blocks:
+        t = parse_block_to_txn(b, source="vision")
+        if t:
+            txns.append(t)
+
+    txns = infer_dr_cr_from_balance(txns)
+
+    diag = {
+        "method": "vision",
         "lines_extracted": len(lines),
         "date_blocks": len(blocks),
         "txns_parsed": len(txns),
@@ -702,7 +773,7 @@ def parse_with_tables(pdf_path: str, which: str) -> Tuple[List[Txn], Dict[str, A
     return txns_all, diag, []
 
 
-def auto_parse(pdf_path: str, ocr: bool) -> Tuple[List[Txn], Dict[str, Any], List[str]]:
+def auto_parse(pdf_path: str, ocr: bool, vision: bool = False) -> Tuple[List[Txn], Dict[str, Any], List[str]]:
     candidates: List[Tuple[List[Txn], Dict[str, Any], List[str]]] = []
 
     camelot_txns, camelot_diag, camelot_raw = parse_with_tables(pdf_path, "camelot")
@@ -716,6 +787,14 @@ def auto_parse(pdf_path: str, ocr: bool) -> Tuple[List[Txn], Dict[str, Any], Lis
     lines_txns, lines_diag, lines_raw = parse_lines_method(pdf_path)
     if lines_diag.get("txns_parsed", 0) >= 5:
         candidates.append((lines_txns, lines_diag, lines_raw))
+
+    if vision:
+        try:
+            vision_txns, vision_diag, vision_raw = parse_vision_method(pdf_path)
+            if vision_diag.get("txns_parsed", 0) >= 5:
+                candidates.append((vision_txns, vision_diag, vision_raw))
+        except Exception as e:
+            candidates.append(([], {"method": "vision", "error": str(e), "txns_parsed": 0}, []))
 
     if ocr:
         try:
@@ -744,7 +823,7 @@ def main() -> None:
     parser.add_argument("xlsx", help="Output XLSX path")
     parser.add_argument(
         "--method",
-        choices=["auto", "camelot", "tabula", "lines", "ocr"],
+        choices=["auto", "camelot", "tabula", "lines", "ocr", "vision"],
         default="auto",
         help="Extraction method to use (default: auto)",
     )
@@ -752,6 +831,11 @@ def main() -> None:
         "--ocr",
         action="store_true",
         help="Enable OCR fallback in auto mode (or use --method ocr)",
+    )
+    parser.add_argument(
+        "--vision",
+        action="store_true",
+        help="Enable Google Vision OCR fallback in auto mode (or use --method vision)",
     )
     parser.add_argument(
         "--no-raw",
@@ -776,7 +860,7 @@ def main() -> None:
     meta = extract_metadata(full_text)
 
     if args.method == "auto":
-        txns, diag, raw_lines = auto_parse(pdf_path, ocr=args.ocr)
+        txns, diag, raw_lines = auto_parse(pdf_path, ocr=args.ocr, vision=args.vision)
     elif args.method in ("camelot", "tabula"):
         txns, diag, raw_lines = parse_with_tables(pdf_path, args.method)
         if len(txns) < 3:
@@ -785,6 +869,8 @@ def main() -> None:
         txns, diag, raw_lines = parse_lines_method(pdf_path)
     elif args.method == "ocr":
         txns, diag, raw_lines = parse_ocr_method(pdf_path)
+    elif args.method == "vision":
+        txns, diag, raw_lines = parse_vision_method(pdf_path)
     else:
         txns, diag, raw_lines = parse_lines_method(pdf_path)
 

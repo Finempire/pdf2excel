@@ -10,6 +10,7 @@ from app import (
     extract_lines_pdfplumber,
     parse_lines_method,
     parse_with_tables,
+    parse_vision_method,
     txns_to_dataframe,
     write_excel,
 )
@@ -19,6 +20,7 @@ def convert_pdf_to_excel(
     pdf_bytes: bytes,
     method: str,
     use_ocr: bool,
+    use_vision: bool,
     include_raw: bool,
 ) -> Tuple[bytes, dict, int, pd.DataFrame]:
     """
@@ -43,13 +45,15 @@ def convert_pdf_to_excel(
         meta = {}
 
         if method == "auto":
-            txns, diag, raw_lines = auto_parse(pdf_path, ocr=use_ocr)
+            txns, diag, raw_lines = auto_parse(pdf_path, ocr=use_ocr, vision=use_vision)
         elif method in ("camelot", "tabula"):
             txns, diag, raw_lines = parse_with_tables(pdf_path, method)
             if len(txns) < 3:
                 txns, diag, raw_lines = parse_lines_method(pdf_path)
         elif method == "lines":
             txns, diag, raw_lines = parse_lines_method(pdf_path)
+        elif method == "vision":
+            txns, diag, raw_lines = parse_vision_method(pdf_path)
         else:
             txns, diag, raw_lines = parse_lines_method(pdf_path)
 
@@ -106,12 +110,19 @@ def main() -> None:
 
         method = st.selectbox(
             "Parsing method",
-            ["auto", "camelot", "tabula", "lines"],
+            ["auto", "camelot", "tabula", "lines", "vision"],
             index=0,
             help="Choose how to extract tables and lines from the PDF.",
         )
         use_ocr = st.checkbox(
-            "Enable OCR fallback (slower)", value=False, help="Use OCR when text is not directly extractable."
+            "Enable OCR fallback (Tesseract, slower)",
+            value=False,
+            help="Use OCR when text is not directly extractable.",
+        )
+        use_vision = st.checkbox(
+            "Enable Google Vision OCR fallback",
+            value=False,
+            help="Use Google Vision OCR when text is not directly extractable.",
         )
         include_raw = st.checkbox(
             "Include Raw sheet (debug)", value=False, help="Add raw parsed lines to the Excel output."
@@ -124,6 +135,7 @@ def main() -> None:
         st.write(
             "- `auto` works best for most PDFs, falling back to line parsing when needed.\n"
             "- Enable OCR if the statement is scanned or if other methods miss data.\n"
+            "- Vision OCR can be more accurate for noisy scans if credentials are available.\n"
             "- The preview pops over the page so you can validate results before downloading."
         )
         st.info(
@@ -141,6 +153,7 @@ def main() -> None:
                         uploaded.read(),
                         method=method,
                         use_ocr=use_ocr,
+                        use_vision=use_vision,
                         include_raw=include_raw,
                     )
                 except Exception as exc:  # pragma: no cover - interactive error path
