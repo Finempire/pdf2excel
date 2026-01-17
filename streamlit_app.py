@@ -5,23 +5,11 @@ from typing import Optional, Tuple
 import pandas as pd
 import streamlit as st
 
-from app import (
-    auto_parse,
-    extract_lines_pdfplumber,
-    parse_lines_method,
-    parse_with_tables,
-    parse_vision_method,
-    txns_to_dataframe,
-    write_excel,
-)
+from app import parse_vision_method, txns_to_dataframe, write_excel
 
 
 def convert_pdf_to_excel(
     pdf_bytes: bytes,
-    method: str,
-    use_ocr: bool,
-    use_vision: bool,
-    include_raw: bool,
 ) -> Tuple[bytes, dict, int, pd.DataFrame]:
     """
     Run the existing conversion pipeline against uploaded bytes and return Excel bytes.
@@ -33,32 +21,14 @@ def convert_pdf_to_excel(
         with open(pdf_path, "wb") as f:
             f.write(pdf_bytes)
 
-        try:
-            lines_for_meta = extract_lines_pdfplumber(pdf_path)
-            full_text = "\n".join(lines_for_meta)
-        except Exception:
-            lines_for_meta = []
-            full_text = ""
-
-        # Metadata is extracted inside auto_parse/parse_lines in the CLI tool,
-        # but here we only care about transactions + diag.
+        # Metadata is extracted inside the CLI tool, but here we only care about
+        # transactions + diag.
         meta = {}
 
-        if method == "auto":
-            txns, diag, raw_lines = auto_parse(pdf_path, ocr=use_ocr, vision=use_vision)
-        elif method in ("camelot", "tabula"):
-            txns, diag, raw_lines = parse_with_tables(pdf_path, method)
-            if len(txns) < 3:
-                txns, diag, raw_lines = parse_lines_method(pdf_path)
-        elif method == "lines":
-            txns, diag, raw_lines = parse_lines_method(pdf_path)
-        elif method == "vision":
-            txns, diag, raw_lines = parse_vision_method(pdf_path)
-        else:
-            txns, diag, raw_lines = parse_lines_method(pdf_path)
+        txns, diag, raw_lines = parse_vision_method(pdf_path)
 
         df_txn = txns_to_dataframe(txns)
-        raw_lines = raw_lines if (include_raw and raw_lines) else None
+        raw_lines = None
 
         write_excel(out_path, meta, diag, df_txn, raw_lines=raw_lines)
 
@@ -87,7 +57,7 @@ def main() -> None:
 
     st.markdown(
         """
-        - 📥 Upload a statement, pick your parsing strategy, and launch the conversion.
+        - 📥 Upload a statement and launch the conversion.
         - 👀 Instantly review a large-screen preview covering 95% of the workspace.
         - 📤 Download the Excel output once you're satisfied with the preview.
         """
@@ -108,34 +78,13 @@ def main() -> None:
                 icon="📂",
             )
 
-        method = st.selectbox(
-            "Parsing method",
-            ["auto", "camelot", "tabula", "lines", "vision"],
-            index=0,
-            help="Choose how to extract tables and lines from the PDF.",
-        )
-        use_ocr = st.checkbox(
-            "Enable OCR fallback (Tesseract, slower)",
-            value=False,
-            help="Use OCR when text is not directly extractable.",
-        )
-        use_vision = st.checkbox(
-            "Enable Google Vision OCR fallback",
-            value=False,
-            help="Use Google Vision OCR when text is not directly extractable.",
-        )
-        include_raw = st.checkbox(
-            "Include Raw sheet (debug)", value=False, help="Add raw parsed lines to the Excel output."
-        )
-
         convert_pressed = st.button("🚀 Convert now", use_container_width=True, type="primary")
 
     with info_col:
         st.subheader("Helpful tips")
         st.write(
-            "- `auto` works best for most PDFs, falling back to line parsing when needed.\n"
-            "- Enable OCR if the statement is scanned or if other methods miss data.\n"
-            "- Vision OCR can be more accurate for noisy scans if credentials are available.\n"
+            "- Upload a bank statement PDF and the backend will parse it with Google Vision.\n"
+            "- Make sure the Vision credentials are configured on the server.\n"
             "- The preview pops over the page so you can validate results before downloading."
         )
         st.info(
@@ -151,10 +100,6 @@ def main() -> None:
                 try:
                     excel_bytes, diag, rows, df_txn = convert_pdf_to_excel(
                         uploaded.read(),
-                        method=method,
-                        use_ocr=use_ocr,
-                        use_vision=use_vision,
-                        include_raw=include_raw,
                     )
                 except Exception as exc:  # pragma: no cover - interactive error path
                     st.error(
@@ -181,7 +126,7 @@ def main() -> None:
         st.subheader("2) Review output")
         metric_col1, metric_col2, metric_col3 = st.columns(3)
         metric_col1.metric("Rows detected", rows)
-        metric_col2.metric("Method used", diag.get("method", method))
+        metric_col2.metric("Method used", diag.get("method", "vision"))
         metric_col3.metric("Pages parsed", diag.get("pages", "n/a"))
 
         if not df_txn.empty:
