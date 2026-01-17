@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 import pandas as pd
 import streamlit as st
 
-from app import parse_vision_method, txns_to_dataframe, write_excel
+from app import parse_ocr_method, parse_vision_method, txns_to_dataframe, write_excel
 
 
 def convert_pdf_to_excel(
@@ -25,7 +25,18 @@ def convert_pdf_to_excel(
         # transactions + diag.
         meta = {}
 
-        txns, diag, raw_lines = parse_vision_method(pdf_path)
+        try:
+            txns, diag, raw_lines = parse_vision_method(pdf_path)
+        except RuntimeError as exc:
+            vision_error = str(exc)
+            if "Vision" in vision_error or "Unauthenticated" in vision_error or "credentials" in vision_error.lower():
+                txns, diag, raw_lines = parse_ocr_method(pdf_path)
+                diag["warning"] = (
+                    "Google Vision OCR failed; falling back to local OCR. "
+                    f"Reason: {vision_error}"
+                )
+            else:
+                raise
 
         df_txn = txns_to_dataframe(txns)
         raw_lines = None
@@ -128,6 +139,9 @@ def main() -> None:
         metric_col1.metric("Rows detected", rows)
         metric_col2.metric("Method used", diag.get("method", "vision"))
         metric_col3.metric("Pages parsed", diag.get("pages", "n/a"))
+        warning = diag.get("warning")
+        if warning:
+            st.warning(warning, icon="⚠️")
 
         if not df_txn.empty:
             st.caption("Conversion preview (showing up to 200 rows)")

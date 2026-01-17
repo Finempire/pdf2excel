@@ -616,7 +616,16 @@ def ocr_pdf_to_text_lines_google_vision(pdf_path: str, dpi: int = 300) -> List[s
             with open(tmp.name, "rb") as f:
                 content = f.read()
         image = vision.Image(content=content)
-        response = client.document_text_detection(image=image)
+        try:
+            response = client.document_text_detection(image=image)
+        except Exception as exc:
+            message = str(exc)
+            if "Unauthenticated" in message or "401" in message:
+                raise RuntimeError(
+                    "Google Vision authentication failed. Verify your service account JSON and "
+                    "GOOGLE_APPLICATION_CREDENTIALS."
+                ) from exc
+            raise
         if response.error.message:
             raise RuntimeError(f"Google Vision API error: {response.error.message}")
         text = response.full_text_annotation.text or ""
